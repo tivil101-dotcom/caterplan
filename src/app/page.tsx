@@ -9,6 +9,7 @@ export default function Home() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -38,6 +39,7 @@ export default function Home() {
     });
 
     if (error) {
+      setError("Sign-in failed. Please try again.");
       setIsSigningIn(false);
     }
   }
@@ -59,6 +61,9 @@ export default function Home() {
         <p className="max-w-md text-lg text-zinc-600 dark:text-zinc-400">
           Catering event management, simplified.
         </p>
+        {error && (
+          <p className="text-sm text-red-600">{error}</p>
+        )}
         <Button
           size="lg"
           className="gap-2"

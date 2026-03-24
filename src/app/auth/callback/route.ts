@@ -4,7 +4,14 @@ import { createServerClient } from "@supabase/ssr";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const nextParam = searchParams.get("next") ?? "/dashboard";
+
+  // Sanitise the redirect target to prevent open-redirect attacks.
+  // Only allow relative paths starting with a single slash.
+  const next =
+    nextParam.startsWith("/") && !nextParam.startsWith("//")
+      ? nextParam
+      : "/dashboard";
 
   // Build the redirect URL using the site URL env var (handles Vercel correctly)
   const siteUrl =

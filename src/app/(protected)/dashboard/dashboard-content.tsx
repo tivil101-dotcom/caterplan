@@ -3,11 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth/auth-context";
+import type { Profile } from "@/lib/auth/types";
 
 interface DashboardContentProps {
   userName: string;
   userEmail: string;
-  userRole: string;
+  userRole: Profile["role"];
   organisationName: string;
 }
 

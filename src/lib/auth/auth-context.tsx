@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -30,29 +31,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [organisation, setOrganisation] = useState<Organisation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const supabase = createClient();
+  // Stable reference — createBrowserClient caches internally, but wrapping
+  // in useMemo avoids a new object reference on every render which would
+  // invalidate useCallback/useEffect dependencies.
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchProfileAndOrg = useCallback(
     async (userId: string) => {
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
 
+      if (profileError) {
+        console.warn("Failed to fetch profile:", profileError.message);
+        return;
+      }
+
       if (profileData) {
         setProfile(profileData as Profile);
 
         if (profileData.organisation_id) {
-          const { data: orgData } = await supabase
+          const { data: orgData, error: orgError } = await supabase
             .from("organisations")
             .select("*")
             .eq("id", profileData.organisation_id)
             .single();
 
-          if (orgData) {
+          if (orgError) {
+            console.warn("Failed to fetch organisation:", orgError.message);
+          } else if (orgData) {
             setOrganisation(orgData as Organisation);
           }
+        } else {
+          setOrganisation(null);
         }
       }
     },
@@ -69,13 +82,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       const {
         data: { user: currentUser },
+        error,
       } = await supabase.auth.getUser();
 
-      if (currentUser) {
-        setUser(currentUser);
-        await fetchProfileAndOrg(currentUser.id);
+      if (error || !currentUser) {
+        setIsLoading(false);
+        return;
       }
 
+      setUser(currentUser);
+      await fetchProfileAndOrg(currentUser.id);
       setIsLoading(false);
     };
 
@@ -97,18 +113,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [supabase, fetchProfileAndOrg]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     router.push("/");
-  };
+  }, [supabase, router]);
 
-  return (
-    <AuthContext.Provider
-      value={{ user, profile, organisation, isLoading, signOut, refreshProfile }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, profile, organisation, isLoading, signOut, refreshProfile }),
+    [user, profile, organisation, isLoading, signOut, refreshProfile]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
