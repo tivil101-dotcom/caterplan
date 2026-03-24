@@ -12,11 +12,16 @@ export default function Home() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        router.replace("/dashboard");
-      } else {
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (error || !user) {
+        // Clear any stale session cookies (e.g. user was deleted from Supabase
+        // but browser still has old auth tokens — causes redirect loops)
+        if (error) {
+          supabase.auth.signOut();
+        }
         setIsLoading(false);
+      } else {
+        router.replace("/dashboard");
       }
     });
   }, [router]);
