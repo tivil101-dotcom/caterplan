@@ -34,14 +34,18 @@ export default function OnboardingPage() {
 
     const supabase = createClient();
 
-    // 1. Create the organisation
-    const { data: org, error: orgError } = await supabase
-      .from("organisations")
-      .insert({ name: orgName.trim() })
-      .select("id")
-      .single();
+    // Generate org ID client-side so we don't need a SELECT after INSERT.
+    // The organisations SELECT policy requires the user's profile to already
+    // reference the org, but the profile update happens after the insert,
+    // so .select("id") would be blocked by RLS.
+    const orgId = crypto.randomUUID();
 
-    if (orgError || !org) {
+    // 1. Create the organisation
+    const { error: orgError } = await supabase
+      .from("organisations")
+      .insert({ id: orgId, name: orgName.trim() });
+
+    if (orgError) {
       setError("Failed to create organisation. Please try again.");
       setIsSubmitting(false);
       return;
@@ -50,7 +54,7 @@ export default function OnboardingPage() {
     // 2. Update the user's profile with the org ID and set as admin
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ organisation_id: org.id, role: "admin" })
+      .update({ organisation_id: orgId, role: "admin" })
       .eq("id", user.id);
 
     if (profileError) {
