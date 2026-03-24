@@ -46,19 +46,49 @@ export default function OnboardingPage() {
       .insert({ id: orgId, name: orgName.trim() });
 
     if (orgError) {
-      setError("Failed to create organisation. Please try again.");
+      console.error("Org insert error:", orgError);
+      setError(`Failed to create organisation: ${orgError.message}`);
       setIsSubmitting(false);
       return;
     }
 
     // 2. Update the user's profile with the org ID and set as admin
-    const { error: profileError } = await supabase
+    // First verify the profile exists (trigger may not have created it)
+    const { data: existingProfile } = await supabase
       .from("profiles")
-      .update({ organisation_id: orgId, role: "admin" })
-      .eq("id", user.id);
+      .select("id")
+      .eq("id", user.id)
+      .single();
+
+    let profileError;
+
+    if (existingProfile) {
+      // Profile exists — update it
+      const result = await supabase
+        .from("profiles")
+        .update({ organisation_id: orgId, role: "admin" })
+        .eq("id", user.id);
+      profileError = result.error;
+    } else {
+      // Profile doesn't exist (trigger may have failed) — insert it
+      const result = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name:
+            user.user_metadata?.full_name ??
+            user.user_metadata?.name ??
+            "",
+          organisation_id: orgId,
+          role: "admin",
+        });
+      profileError = result.error;
+    }
 
     if (profileError) {
-      setError("Failed to update profile. Please try again.");
+      console.error("Profile update error:", profileError);
+      setError(`Failed to update profile: ${profileError.message}`);
       setIsSubmitting(false);
       return;
     }
