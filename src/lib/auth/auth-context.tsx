@@ -115,8 +115,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    router.push("/");
-  }, [supabase, router]);
+    // Hard redirect — router.push() does a soft client-side navigation
+    // which keeps the cached server component output (protected layout
+    // doesn't re-run), so the page appears to do nothing. A full page
+    // load ensures cookies are cleared and the server re-checks auth.
+    window.location.href = "/";
+  }, [supabase]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ user, profile, organisation, isLoading, signOut, refreshProfile }),
