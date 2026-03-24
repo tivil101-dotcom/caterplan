@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
 export default function Home() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +20,14 @@ export default function Home() {
         }
         setIsLoading(false);
       } else {
-        router.replace("/dashboard");
+        // Hard redirect so the server-side protected layout handles auth
+        // properly. router.replace() does a client-side navigation that
+        // can stall if the server component errors, leaving the spinner
+        // visible indefinitely.
+        window.location.href = "/dashboard";
       }
     });
-  }, [router]);
+  }, []);
 
   async function handleSignIn() {
     setIsSigningIn(true);
