@@ -52,28 +52,14 @@ export default function OnboardingPage() {
       return;
     }
 
-    // 2. Update the user's profile with the org ID and set as admin
-    // First verify the profile exists (trigger may not have created it)
-    const { data: existingProfile } = await supabase
+    // 2. Update the user's profile with the org ID and set as admin.
+    // Use upsert so it works whether the trigger already created the
+    // profile or not — avoids the SELECT-then-branch pattern that can
+    // fail when RLS hides the existing row.
+    const { error: profileError } = await supabase
       .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .single();
-
-    let profileError;
-
-    if (existingProfile) {
-      // Profile exists — update it
-      const result = await supabase
-        .from("profiles")
-        .update({ organisation_id: orgId, role: "admin" })
-        .eq("id", user.id);
-      profileError = result.error;
-    } else {
-      // Profile doesn't exist (trigger may have failed) — insert it
-      const result = await supabase
-        .from("profiles")
-        .insert({
+      .upsert(
+        {
           id: user.id,
           email: user.email,
           full_name:
@@ -82,12 +68,12 @@ export default function OnboardingPage() {
             "",
           organisation_id: orgId,
           role: "admin",
-        });
-      profileError = result.error;
-    }
+        },
+        { onConflict: "id" }
+      );
 
     if (profileError) {
-      console.error("Profile update error:", profileError);
+      console.error("Profile upsert error:", profileError);
       setError(`Failed to update profile: ${profileError.message}`);
       setIsSubmitting(false);
       return;
