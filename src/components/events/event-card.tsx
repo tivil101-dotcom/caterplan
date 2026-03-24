@@ -1,18 +1,15 @@
 import Link from "next/link";
 import { Calendar, Users } from "lucide-react";
 import { StatusBadge } from "./status-badge";
-import type { CaterEvent } from "@/lib/events/types";
+import { getEventTotalGuests, type CaterEvent } from "@/lib/events/types";
 
 interface EventCardProps {
   event: CaterEvent;
 }
 
 export function EventCard({ event }: EventCardProps) {
-  const firstDay = event.service_days?.[0];
-  const totalGuests = event.service_days?.reduce(
-    (sum, d) => sum + (d.guest_count ?? 0),
-    0
-  );
+  const firstDay = event.event_days?.[0];
+  const totalGuests = getEventTotalGuests(event);
   const formattedDate = firstDay?.date
     ? new Date(firstDay.date + "T00:00:00").toLocaleDateString("en-GB", {
         day: "numeric",
@@ -20,7 +17,7 @@ export function EventCard({ event }: EventCardProps) {
         year: "numeric",
       })
     : "No date set";
-  const dayCount = event.service_days?.length ?? 0;
+  const dayCount = event.event_days?.length ?? 0;
 
   return (
     <Link
@@ -46,12 +43,12 @@ export function EventCard({ event }: EventCardProps) {
           {formattedDate}
           {dayCount > 1 && ` (+${dayCount - 1} days)`}
         </span>
-        {totalGuests ? (
+        {totalGuests > 0 && (
           <span className="flex items-center gap-1">
             <Users className="h-3.5 w-3.5" />
             {totalGuests} guests
           </span>
-        ) : null}
+        )}
       </div>
     </Link>
   );

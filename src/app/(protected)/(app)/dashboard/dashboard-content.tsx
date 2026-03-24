@@ -7,6 +7,7 @@ import { Calendar, Plus } from "lucide-react";
 import { StatusBadge } from "@/components/events/status-badge";
 import {
   EVENT_STATUSES,
+  getEventTotalGuests,
   type CaterEvent,
   type EventStatus,
 } from "@/lib/events/types";
@@ -81,11 +82,8 @@ export function DashboardContent({
           ) : (
             <div className="space-y-2">
               {upcomingEvents.map((event) => {
-                const firstDay = event.service_days?.[0];
-                const totalGuests = event.service_days?.reduce(
-                  (sum, d) => sum + (d.guest_count ?? 0),
-                  0
-                );
+                const firstDay = event.event_days?.[0];
+                const totalGuests = getEventTotalGuests(event);
                 return (
                   <Link
                     key={event.id}
@@ -105,7 +103,7 @@ export function DashboardContent({
                               month: "short",
                             })
                           : "No date"}
-                        {totalGuests ? ` · ${totalGuests} guests` : ""}
+                        {totalGuests > 0 ? ` · ${totalGuests} guests` : ""}
                       </p>
                     </div>
                     <StatusBadge status={event.status} />

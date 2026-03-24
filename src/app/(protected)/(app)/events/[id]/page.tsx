@@ -13,7 +13,7 @@ export default async function EventDetailPage({
 
   const { data, error } = await supabase
     .from("events")
-    .select("*, event_types(*), service_days(*)")
+    .select("*, event_types(*), event_days(*, event_services(*))")
     .eq("id", id)
     .single();
 
@@ -21,12 +21,20 @@ export default async function EventDetailPage({
     notFound();
   }
 
-  // Sort service days by sort_order
-  if (data.service_days) {
-    data.service_days.sort(
+  // Sort event days and their services
+  if (data.event_days) {
+    data.event_days.sort(
       (a: { sort_order: number }, b: { sort_order: number }) =>
         a.sort_order - b.sort_order
     );
+    for (const day of data.event_days) {
+      if (day.event_services) {
+        day.event_services.sort(
+          (a: { sort_order: number }, b: { sort_order: number }) =>
+            a.sort_order - b.sort_order
+        );
+      }
+    }
   }
 
   return <EventDetail event={data as CaterEvent} />;

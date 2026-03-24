@@ -8,7 +8,12 @@ import { ArrowLeft, Calendar, Edit, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "./status-badge";
 import { StatusWorkflow } from "./status-workflow";
-import type { CaterEvent, EventStatus } from "@/lib/events/types";
+import {
+  getEventDayGuestCount,
+  getEventTotalGuests,
+  type CaterEvent,
+  type EventStatus,
+} from "@/lib/events/types";
 
 interface EventDetailProps {
   event: CaterEvent;
@@ -30,10 +35,7 @@ export function EventDetail({ event: initialEvent }: EventDetailProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const totalGuests = event.service_days?.reduce(
-    (sum, d) => sum + (d.guest_count ?? 0),
-    0
-  );
+  const totalGuests = getEventTotalGuests(event);
 
   const handleStatusChange = useCallback(
     async (status: EventStatus) => {
@@ -144,58 +146,86 @@ export function EventDetail({ event: initialEvent }: EventDetailProps) {
         </CardContent>
       </Card>
 
-      {/* Service days */}
+      {/* Event days with nested services */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Service days
-            {totalGuests ? (
+            Event days
+            {totalGuests > 0 && (
               <span className="ml-2 text-sm font-normal text-zinc-500">
                 {totalGuests} total guests
               </span>
-            ) : null}
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {event.service_days && event.service_days.length > 0 ? (
-            <div className="space-y-2">
-              {event.service_days.map((day) => (
-                <div
-                  key={day.id}
-                  className="flex items-center justify-between rounded-md border border-zinc-100 px-3 py-2 dark:border-zinc-800"
-                >
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-4 w-4 text-zinc-400" />
-                    <div>
-                      <p className="text-sm font-medium text-zinc-900 dark:text-white">
-                        {day.label || "Service day"}
-                      </p>
-                      <p className="text-xs text-zinc-500">
-                        {day.date
-                          ? new Date(day.date + "T00:00:00").toLocaleDateString(
-                              "en-GB",
-                              {
-                                weekday: "short",
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              }
-                            )
-                          : "No date set"}
-                      </p>
+          {event.event_days && event.event_days.length > 0 ? (
+            <div className="space-y-4">
+              {event.event_days.map((day) => {
+                const dayGuests = getEventDayGuestCount(day);
+                return (
+                  <div
+                    key={day.id}
+                    className="rounded-md border border-zinc-100 dark:border-zinc-800"
+                  >
+                    {/* Day header */}
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="h-4 w-4 text-zinc-400" />
+                        <div>
+                          <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                            {day.label || "Event day"}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {day.date
+                              ? new Date(
+                                  day.date + "T00:00:00"
+                                ).toLocaleDateString("en-GB", {
+                                  weekday: "short",
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "No date set"}
+                          </p>
+                        </div>
+                      </div>
+                      {dayGuests > 0 && (
+                        <span className="flex items-center gap-1 text-sm text-zinc-500">
+                          <Users className="h-3.5 w-3.5" />
+                          {dayGuests}
+                        </span>
+                      )}
                     </div>
+
+                    {/* Services */}
+                    {day.event_services && day.event_services.length > 0 && (
+                      <div className="border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
+                        <div className="space-y-1">
+                          {day.event_services.map((svc) => (
+                            <div
+                              key={svc.id}
+                              className="flex items-center justify-between py-0.5 text-sm"
+                            >
+                              <span className="text-zinc-600 dark:text-zinc-400">
+                                {svc.name || "Service"}
+                              </span>
+                              {svc.guest_count != null && (
+                                <span className="text-xs text-zinc-400">
+                                  {svc.guest_count} guests
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {day.guest_count && (
-                    <span className="flex items-center gap-1 text-sm text-zinc-500">
-                      <Users className="h-3.5 w-3.5" />
-                      {day.guest_count}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">No service days added.</p>
+            <p className="text-sm text-zinc-500">No event days added.</p>
           )}
         </CardContent>
       </Card>

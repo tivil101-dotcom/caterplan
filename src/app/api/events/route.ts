@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("events")
-    .select("*, event_types(*), service_days(*)")
+    .select("*, event_types(*), event_days(*, event_services(*))")
     .order("created_at", { ascending: false });
 
   if (status && status !== "all") {
@@ -44,11 +44,15 @@ export async function POST(request: NextRequest) {
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
-  const { name, event_type_id, notes, service_days } = body as {
+  const { name, event_type_id, notes, event_days } = body as {
     name: string;
     event_type_id: string;
     notes?: string;
-    service_days?: { date?: string; guest_count?: number; label?: string }[];
+    event_days?: {
+      date?: string;
+      label?: string;
+      services?: { name?: string; guest_count?: number }[];
+    }[];
   };
 
   if (!name?.trim()) {
@@ -81,7 +85,7 @@ export async function POST(request: NextRequest) {
 
   // Determine date for event ID generation
   const firstDate =
-    service_days?.[0]?.date ? new Date(service_days[0].date) : new Date();
+    event_days?.[0]?.date ? new Date(event_days[0].date) : new Date();
   const eventId = generateEventId(eventType.letter_code, firstDate);
 
   // Insert the event
@@ -101,25 +105,55 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: eventError.message }, { status: 500 });
   }
 
-  // Insert service days
-  if (service_days && service_days.length > 0) {
-    const dayRows = service_days.map((day, i) => ({
-      event_id: event.id,
-      organisation_id: organisationId,
-      date: day.date || null,
-      guest_count: day.guest_count || null,
-      label: day.label?.trim() || null,
-      sort_order: i,
-    }));
+  // Insert event days and their services
+  if (event_days && event_days.length > 0) {
+    for (let i = 0; i < event_days.length; i++) {
+      const day = event_days[i];
 
-    const { error: daysError } = await supabase
-      .from("service_days")
-      .insert(dayRows);
+      const { data: insertedDay, error: dayError } = await supabase
+        .from("event_days")
+        .insert({
+          event_id: event.id,
+          organisation_id: organisationId,
+          date: day.date || null,
+          label: day.label?.trim() || null,
+          sort_order: i,
+        })
+        .select("id")
+        .single();
 
-    if (daysError) {
-      return NextResponse.json({ error: daysError.message }, { status: 500 });
+      if (dayError || !insertedDay) {
+        return NextResponse.json(
+          { error: dayError?.message ?? "Failed to create event day" },
+          { status: 500 }
+        );
+      }
+
+      // Insert services for this day
+      const services = day.services?.length
+        ? day.services
+        : [{ name: "", guest_count: undefined }];
+
+      const serviceRows = services.map((svc, j) => ({
+        event_day_id: insertedDay.id,
+        organisation_id: organisationId,
+        name: svc.name?.trim() ?? "",
+        guest_count: svc.guest_count ?? null,
+        sort_order: j,
+      }));
+
+      const { error: svcError } = await supabase
+        .from("event_services")
+        .insert(serviceRows);
+
+      if (svcError) {
+        return NextResponse.json({ error: svcError.message }, { status: 500 });
+      }
     }
   }
 
-  return NextResponse.json({ id: event.id, event_id: eventId }, { status: 201 });
+  return NextResponse.json(
+    { id: event.id, event_id: eventId },
+    { status: 201 }
+  );
 }

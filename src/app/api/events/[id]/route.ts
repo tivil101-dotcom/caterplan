@@ -16,7 +16,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("events")
-    .select("*, event_types(*), service_days(*)")
+    .select("*, event_types(*), event_days(*, event_services(*))")
     .eq("id", id)
     .single();
 
@@ -24,12 +24,20 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 404 });
   }
 
-  // Sort service days by sort_order
-  if (data.service_days) {
-    data.service_days.sort(
+  // Sort event days and their services
+  if (data.event_days) {
+    data.event_days.sort(
       (a: { sort_order: number }, b: { sort_order: number }) =>
         a.sort_order - b.sort_order
     );
+    for (const day of data.event_days) {
+      if (day.event_services) {
+        day.event_services.sort(
+          (a: { sort_order: number }, b: { sort_order: number }) =>
+            a.sort_order - b.sort_order
+        );
+      }
+    }
   }
 
   return NextResponse.json(data);
@@ -48,11 +56,15 @@ export async function PUT(
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
-  const { name, event_type_id, notes, service_days } = body as {
+  const { name, event_type_id, notes, event_days } = body as {
     name?: string;
     event_type_id?: string;
     notes?: string;
-    service_days?: { date?: string; guest_count?: number; label?: string }[];
+    event_days?: {
+      date?: string;
+      label?: string;
+      services?: { name?: string; guest_count?: number }[];
+    }[];
   };
 
   // Build the update object
@@ -72,7 +84,7 @@ export async function PUT(
 
     if (eventType) {
       const firstDate =
-        service_days?.[0]?.date ? new Date(service_days[0].date) : new Date();
+        event_days?.[0]?.date ? new Date(event_days[0].date) : new Date();
       updates.event_id = generateEventId(eventType.letter_code, firstDate);
     }
   }
@@ -88,36 +100,49 @@ export async function PUT(
     }
   }
 
-  // Replace service days if provided
-  if (service_days !== undefined) {
-    // Delete existing
-    await supabase.from("service_days").delete().eq("event_id", id);
+  // Replace event days and services if provided
+  if (event_days !== undefined) {
+    // Delete existing days (cascades to event_services)
+    await supabase.from("event_days").delete().eq("event_id", id);
 
-    // Insert new
-    if (service_days.length > 0) {
-      const dayRows = service_days.map((day, i) => ({
-        event_id: id,
+    // Insert new days with services
+    for (let i = 0; i < event_days.length; i++) {
+      const day = event_days[i];
+
+      const { data: insertedDay, error: dayError } = await supabase
+        .from("event_days")
+        .insert({
+          event_id: id,
+          organisation_id: organisationId,
+          date: day.date || null,
+          label: day.label?.trim() || null,
+          sort_order: i,
+        })
+        .select("id")
+        .single();
+
+      if (dayError || !insertedDay) continue;
+
+      const services = day.services?.length
+        ? day.services
+        : [{ name: "", guest_count: undefined }];
+
+      const serviceRows = services.map((svc, j) => ({
+        event_day_id: insertedDay.id,
         organisation_id: organisationId,
-        date: day.date || null,
-        guest_count: day.guest_count || null,
-        label: day.label?.trim() || null,
-        sort_order: i,
+        name: svc.name?.trim() ?? "",
+        guest_count: svc.guest_count ?? null,
+        sort_order: j,
       }));
 
-      const { error: daysError } = await supabase
-        .from("service_days")
-        .insert(dayRows);
-
-      if (daysError) {
-        return NextResponse.json({ error: daysError.message }, { status: 500 });
-      }
+      await supabase.from("event_services").insert(serviceRows);
     }
   }
 
   // Fetch and return the updated event
   const { data: updated } = await supabase
     .from("events")
-    .select("*, event_types(*), service_days(*)")
+    .select("*, event_types(*), event_days(*, event_services(*))")
     .eq("id", id)
     .single();
 
