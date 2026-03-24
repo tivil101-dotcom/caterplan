@@ -90,7 +90,23 @@ CREATE POLICY "Authenticated users can create organisations"
   WITH CHECK (auth.uid() IS NOT NULL);
 
 -- =============================================================================
--- 5. Row-Level Security — Profiles
+-- 5. Helper function to get the current user's organisation_id
+-- =============================================================================
+
+-- SECURITY DEFINER so this bypasses RLS — avoids infinite recursion when
+-- profiles policies need to know the caller's org.
+CREATE OR REPLACE FUNCTION public.get_user_organisation_id()
+RETURNS UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT organisation_id FROM public.profiles WHERE id = auth.uid()
+$$;
+
+-- =============================================================================
+-- 6. Row-Level Security — Profiles
 -- =============================================================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -100,14 +116,13 @@ CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   USING (id = auth.uid());
 
--- Users can see other profiles in their organisation
+-- Users can see other profiles in their organisation.
+-- Uses the helper function instead of a subquery to avoid infinite recursion.
 CREATE POLICY "Users can view profiles in own organisation"
   ON public.profiles FOR SELECT
   USING (
     organisation_id IS NOT NULL
-    AND organisation_id IN (
-      SELECT organisation_id FROM public.profiles WHERE id = auth.uid()
-    )
+    AND organisation_id = public.get_user_organisation_id()
   );
 
 -- Users can update their own profile
