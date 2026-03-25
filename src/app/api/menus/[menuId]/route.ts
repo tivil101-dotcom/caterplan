@@ -16,10 +16,42 @@ export async function GET(
   const { data, error } = await supabase
     .from("menus")
     .select(
-      "*, menu_sections(*, menu_items(*, menu_item_alternatives(*, alternative_item:menu_items!menu_item_alternatives_alternative_item_id_fkey(id, name, description, dietary_flags))))"
+      "*, menu_sections(*, menu_items(*, menu_item_alternatives(id, menu_item_id, alternative_item_id, created_at)))"
     )
     .eq("id", menuId)
     .single();
+
+  // Resolve alternative item details separately to avoid FK hint issues
+  if (data?.menu_sections) {
+    const allAltItemIds = new Set<string>();
+    for (const section of data.menu_sections) {
+      for (const item of section.menu_items ?? []) {
+        for (const alt of item.menu_item_alternatives ?? []) {
+          allAltItemIds.add(alt.alternative_item_id);
+        }
+      }
+    }
+
+    if (allAltItemIds.size > 0) {
+      const { data: altItems } = await supabase
+        .from("menu_items")
+        .select("id, name, description, dietary_flags")
+        .in("id", Array.from(allAltItemIds));
+
+      const altItemMap = new Map(
+        (altItems ?? []).map((i: { id: string; name: string; description: string | null; dietary_flags: string[] }) => [i.id, i])
+      );
+
+      for (const section of data.menu_sections) {
+        for (const item of section.menu_items ?? []) {
+          for (const alt of item.menu_item_alternatives ?? []) {
+            (alt as Record<string, unknown>).alternative_item =
+              altItemMap.get(alt.alternative_item_id) ?? null;
+          }
+        }
+      }
+    }
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 404 });
