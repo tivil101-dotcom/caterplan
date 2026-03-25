@@ -4,14 +4,16 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Calendar, Edit, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Calendar, Edit, Mail, Phone, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "./status-badge";
 import { StatusWorkflow } from "./status-workflow";
 import {
+  CLIENT_ROLE_LABELS,
   getEventDayGuestCount,
   getEventTotalGuests,
   type CaterEvent,
+  type EventClientRole,
   type EventStatus,
 } from "@/lib/events/types";
 
@@ -61,6 +63,8 @@ export function EventDetail({ event: initialEvent }: EventDetailProps) {
       setShowDeleteConfirm(false);
     }
   }, [event.id, router]);
+
+  const hasClients = event.event_clients && event.event_clients.length > 0;
 
   return (
     <div className="space-y-6">
@@ -146,51 +150,92 @@ export function EventDetail({ event: initialEvent }: EventDetailProps) {
         </CardContent>
       </Card>
 
-      {/* Client & Venue */}
-      {(event.clients || event.venues) && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {event.clients && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Client</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link
-                  href={`/clients/${event.clients.id}`}
-                  className="text-sm font-medium text-zinc-900 hover:underline dark:text-white"
-                >
-                  {event.clients.name}
-                </Link>
-                {event.clients.company && (
-                  <p className="text-xs text-zinc-500">
-                    {event.clients.company}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-          {event.venues && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Venue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link
-                  href={`/venues/${event.venues.id}`}
-                  className="text-sm font-medium text-zinc-900 hover:underline dark:text-white"
-                >
-                  {event.venues.name}
-                </Link>
-                {event.venues.address && (
-                  <p className="text-xs text-zinc-500">
-                    {event.venues.address}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+      {/* Clients & Venue */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {/* Clients card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {hasClients && (event.event_clients?.length ?? 0) > 1
+                ? "Clients"
+                : "Client"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hasClients ? (
+              <div className="space-y-3">
+                {event.event_clients!.map((ec) => (
+                  <div key={ec.id}>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/clients/${ec.client_id}`}
+                        className="text-sm font-medium text-zinc-900 hover:underline dark:text-white"
+                      >
+                        {ec.clients?.name}
+                      </Link>
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                        {CLIENT_ROLE_LABELS[ec.role as EventClientRole]}
+                      </span>
+                    </div>
+                    {ec.clients?.company && (
+                      <p className="text-xs text-zinc-500">
+                        {ec.clients.company}
+                      </p>
+                    )}
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs text-zinc-500">
+                      {ec.clients?.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {ec.clients.email}
+                        </span>
+                      )}
+                      {ec.clients?.phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {ec.clients.phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-400">No clients assigned.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Venue card */}
+        {event.venues ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Venue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link
+                href={`/venues/${event.venues.id}`}
+                className="text-sm font-medium text-zinc-900 hover:underline dark:text-white"
+              >
+                {event.venues.name}
+              </Link>
+              {event.venues.address && (
+                <p className="text-xs text-zinc-500">
+                  {event.venues.address}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Venue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-400">No venue assigned.</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Venue practical details */}
       {event.venues &&

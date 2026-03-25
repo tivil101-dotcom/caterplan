@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   // Fetch upcoming events (next 5 that aren't complete)
   const { data: upcomingEvents } = await supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*))")
+    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company))")
     .neq("status", "complete")
     .order("created_at", { ascending: false })
     .limit(5);

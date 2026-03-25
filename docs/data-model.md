@@ -47,8 +47,16 @@ The person or company booking the catering.
 
 - Name, company, contact details
 - Notes / preferences
-- Event history (derived from linked events)
+- Event history (derived from linked events via event_clients junction table)
 - Future: login access to a client portal (Phase 5)
+
+### Event Client
+Junction table linking clients to events with roles. An event can have multiple clients with different roles.
+
+- Linked to one Event and one Client
+- Role: end_client, organiser, event_company
+- Sort order (determines display priority — first client is "primary")
+- Same client cannot be linked twice to the same event
 
 ### Venue
 A location where events take place. Reusable across events.
@@ -224,7 +232,8 @@ Organisation
   │     │     └── Menu Items (+ Drink Specs)
   │
   └── Events
-        ├── Client (link)
+        ├── Event Clients (junction, with roles)
+        │     └── Client (link)
         ├── Venue (link)
         ├── Service Days
         │     ├── Timeline Entries

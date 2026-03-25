@@ -19,6 +19,15 @@ export function EventCard({ event }: EventCardProps) {
     : "No date set";
   const dayCount = event.event_days?.length ?? 0;
 
+  // Build client display string
+  const clientNames = event.event_clients
+    ?.sort((a, b) => a.sort_order - b.sort_order)
+    .map((ec) => ec.clients?.name)
+    .filter(Boolean);
+  const clientDisplay = clientNames?.length
+    ? clientNames.join(", ")
+    : null;
+
   return (
     <Link
       href={`/events/${event.id}`}
@@ -32,6 +41,7 @@ export function EventCard({ event }: EventCardProps) {
           </h3>
           <p className="mt-0.5 text-xs text-zinc-500">
             {event.event_types?.name}
+            {clientDisplay && ` · ${clientDisplay}`}
           </p>
         </div>
         <StatusBadge status={event.status} />

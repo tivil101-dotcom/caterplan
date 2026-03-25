@@ -18,6 +18,8 @@ Updated 2026-03-25 after first build session. Tim is building a catering-specifi
 | 4 | Event Management — Core | 869cm77tg | CRUD, event types, event days, event services, status workflow, dashboard updates. |
 | 5 | Client Management | 869cm77uc | CRUD, search, event history, inline creation from event form. |
 | 6 | Venue Management | 869cm7896 | CRUD, practical details, search, inline creation from event form. |
+| 7 | Multiple Clients per Event | 869cmt2rj | Junction table with roles (end_client, organiser, event_company). Multi-client form, detail pages updated. |
+| 7a | Menu Builder — Core | 869cm78am | menus, menu_sections, menu_items, menu_item_alternatives tables. Full API, /menus list page, full-page editor with DnD reordering, dietary flags, 14 UK allergens, item alternatives. |
 
 ### Key Design Changes During Build
 
@@ -25,7 +27,7 @@ Updated 2026-03-25 after first build session. Tim is building a catering-specifi
 * **Event Services added** — new layer under Event Days. Multiple services per day (breakfast, lunch, dinner) with independent guest counts
 * **Menus link to services** — not event days. Breakfast service gets a breakfast menu, dinner gets a dinner menu
 * **Staffing is per event day** — staff work across services. Has arrival/departure times. 8-hour break flag planned.
-* **Multiple clients per event planned** — junction table with roles (End Client, Organiser, Event Company). Ticket created, not yet built.
+* **Multiple clients per event** — junction table (event_clients) with roles (end_client, organiser, event_company). Replaces old single client_id FK on events. Data migrated.
 * **Mobile navigation** — changed from bottom nav to hamburger menu with slide-out sidebar
 * **Venue practical details** — display within the venue card on event detail page
 * **Custom event types** — can be added inline from the event form (not just Wedding/Corporate)
@@ -57,8 +59,7 @@ Updated 2026-03-25 after first build session. Tim is building a catering-specifi
 
 ### Immediate Next Tickets
 
-1. **Multiple Clients per Event** (869cmt2rj) — High priority. Junction table with roles. Do before Menu Builder.
-2. **Menu Builder** (869cm78am) — High priority. Needs planning session before building. Most catering-specific feature.
+1. **Menu Builder** (869cm78am) — High priority. Needs planning session before building. Most catering-specific feature. Most catering-specific feature.
 
 ### After That
 

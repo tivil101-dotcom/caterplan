@@ -15,7 +15,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("clients")
-    .select("*, events(id, event_id, name, status, event_types(name), event_days(date, sort_order))")
+    .select("*, event_clients(id, role, sort_order, events(id, event_id, name, status, event_types(name), event_days(date, sort_order)))")
     .eq("id", id)
     .single();
 

@@ -16,7 +16,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
+    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company, email, phone)), venues(*)")
     .eq("id", id)
     .single();
 
@@ -40,6 +40,14 @@ export async function GET(
     }
   }
 
+  // Sort event clients
+  if (data.event_clients) {
+    data.event_clients.sort(
+      (a: { sort_order: number }, b: { sort_order: number }) =>
+        a.sort_order - b.sort_order
+    );
+  }
+
   return NextResponse.json(data);
 }
 
@@ -56,11 +64,10 @@ export async function PUT(
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
-  const { name, event_type_id, client_id, venue_id, notes, event_days } =
+  const { name, event_type_id, venue_id, notes, event_days, event_clients } =
     body as {
       name?: string;
       event_type_id?: string;
-      client_id?: string | null;
       venue_id?: string | null;
       notes?: string;
       event_days?: {
@@ -68,13 +75,13 @@ export async function PUT(
         label?: string;
         services?: { name?: string; guest_count?: number }[];
       }[];
+      event_clients?: { client_id: string; role?: string }[];
     };
 
   // Build the update object
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
   if (notes !== undefined) updates.notes = notes?.trim() || null;
-  if (client_id !== undefined) updates.client_id = client_id || null;
   if (venue_id !== undefined) updates.venue_id = venue_id || null;
 
   // If event type changed, regenerate event ID
@@ -144,10 +151,27 @@ export async function PUT(
     }
   }
 
+  // Replace event clients if provided
+  if (event_clients !== undefined) {
+    await supabase.from("event_clients").delete().eq("event_id", id);
+
+    if (event_clients.length > 0) {
+      const clientRows = event_clients.map((ec, i) => ({
+        organisation_id: organisationId,
+        event_id: id,
+        client_id: ec.client_id,
+        role: ec.role || "end_client",
+        sort_order: i,
+      }));
+
+      await supabase.from("event_clients").insert(clientRows);
+    }
+  }
+
   // Fetch and return the updated event
   const { data: updated } = await supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
+    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company, email, phone)), venues(*)")
     .eq("id", id)
     .single();
 

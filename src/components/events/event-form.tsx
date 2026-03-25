@@ -5,10 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { EventDayFields } from "./event-day-fields";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import type { CaterEvent, EventType, EventDayInput } from "@/lib/events/types";
+import type {
+  CaterEvent,
+  EventType,
+  EventDayInput,
+  EventClientInput,
+  EventClientRole,
+} from "@/lib/events/types";
+import { CLIENT_ROLE_LABELS, EVENT_CLIENT_ROLES } from "@/lib/events/types";
 import type { Client } from "@/lib/clients/types";
 import type { Venue } from "@/lib/venues/types";
 
@@ -29,9 +36,6 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
 
   const [name, setName] = useState(event?.name ?? "");
   const [eventTypeId, setEventTypeId] = useState(event?.event_type_id ?? "");
-  const [clientId, setClientId] = useState<string | null>(
-    event?.client_id ?? null
-  );
   const [venueId, setVenueId] = useState<string | null>(
     event?.venue_id ?? null
   );
@@ -49,6 +53,14 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
     })) ?? [{ ...EMPTY_EVENT_DAY }]
   );
 
+  // Multi-client state
+  const [eventClients, setEventClients] = useState<EventClientInput[]>(
+    event?.event_clients?.map((ec) => ({
+      client_id: ec.client_id,
+      role: ec.role,
+    })) ?? []
+  );
+
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -62,10 +74,11 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   const [isCreatingType, setIsCreatingType] = useState(false);
   const [typeError, setTypeError] = useState<string | null>(null);
 
-  // Inline new client creation
+  // Inline new client creation (now per-row)
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientName, setNewClientName] = useState("");
   const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [newClientTargetIndex, setNewClientTargetIndex] = useState<number>(-1);
 
   // Inline new venue creation
   const [showNewVenue, setShowNewVenue] = useState(false);
@@ -149,9 +162,26 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
 
     if (res.ok) {
       setClients((prev) => [...prev, data]);
-      setClientId(data.id);
+      // If we were adding to a specific row, set it there
+      if (newClientTargetIndex >= 0) {
+        setEventClients((prev) => {
+          const updated = [...prev];
+          updated[newClientTargetIndex] = {
+            ...updated[newClientTargetIndex],
+            client_id: data.id,
+          };
+          return updated;
+        });
+      } else {
+        // Adding a brand new row
+        setEventClients((prev) => [
+          ...prev,
+          { client_id: data.id, role: "end_client" as EventClientRole },
+        ]);
+      }
       setNewClientName("");
       setShowNewClient(false);
+      setNewClientTargetIndex(-1);
     }
     setIsCreatingClient(false);
   }
@@ -176,6 +206,38 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
     setIsCreatingVenue(false);
   }
 
+  // Client row helpers
+  function addClientRow() {
+    setEventClients((prev) => [
+      ...prev,
+      { client_id: "", role: "end_client" as EventClientRole },
+    ]);
+  }
+
+  function removeClientRow(index: number) {
+    setEventClients((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateClientRow(
+    index: number,
+    field: keyof EventClientInput,
+    value: string
+  ) {
+    setEventClients((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  // Filter out already-selected clients for each row
+  function getAvailableClients(currentIndex: number) {
+    const selectedIds = eventClients
+      .filter((_, i) => i !== currentIndex)
+      .map((ec) => ec.client_id);
+    return clients.filter((c) => !selectedIds.includes(c.id));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
@@ -186,13 +248,16 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
     setIsSubmitting(true);
     setError(null);
 
+    // Filter out empty client rows
+    const validClients = eventClients.filter((ec) => ec.client_id);
+
     const body = {
       name: name.trim(),
       event_type_id: eventTypeId,
-      client_id: clientId,
       venue_id: venueId,
       notes,
       event_days: eventDays,
+      event_clients: validClients,
     };
 
     const url = isEdit ? `/api/events/${event.id}` : "/api/events";
@@ -294,21 +359,73 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
         )}
       </div>
 
-      {/* Client */}
+      {/* Clients (multi) */}
       <div className="space-y-2">
-        <Label>Client</Label>
-        <SearchableSelect
-          value={clientId}
-          onChange={setClientId}
-          options={clients.map((c) => ({
-            value: c.id,
-            label: c.company ? `${c.name} (${c.company})` : c.name,
-          }))}
-          placeholder="Select a client..."
-          onCreateNew={() => setShowNewClient(true)}
-          createNewLabel="Add new client"
+        <Label>Clients</Label>
+        {eventClients.length > 0 && (
+          <div className="space-y-2">
+            {eventClients.map((ec, index) => (
+              <div key={index} className="flex items-start gap-2">
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={ec.client_id || null}
+                    onChange={(val) =>
+                      updateClientRow(index, "client_id", val ?? "")
+                    }
+                    options={getAvailableClients(index).map((c) => ({
+                      value: c.id,
+                      label: c.company
+                        ? `${c.name} (${c.company})`
+                        : c.name,
+                    }))}
+                    placeholder="Select a client..."
+                    onCreateNew={() => {
+                      setNewClientTargetIndex(index);
+                      setShowNewClient(true);
+                    }}
+                    createNewLabel="Add new client"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <select
+                  value={ec.role}
+                  onChange={(e) =>
+                    updateClientRow(index, "role", e.target.value)
+                  }
+                  disabled={isSubmitting}
+                  className="h-9 rounded-lg border border-input bg-transparent px-2 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-zinc-900"
+                >
+                  {EVENT_CLIENT_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {CLIENT_ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 shrink-0 p-0 text-zinc-400 hover:text-red-600"
+                  onClick={() => removeClientRow(index)}
+                  disabled={isSubmitting}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addClientRow}
           disabled={isSubmitting}
-        />
+        >
+          <Plus className="mr-1 h-3 w-3" />
+          Add client
+        </Button>
+
         {showNewClient && (
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="mb-2 text-xs font-medium text-zinc-500">
@@ -334,7 +451,10 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
                 type="button"
                 size="sm"
                 variant="ghost"
-                onClick={() => setShowNewClient(false)}
+                onClick={() => {
+                  setShowNewClient(false);
+                  setNewClientTargetIndex(-1);
+                }}
               >
                 Cancel
               </Button>

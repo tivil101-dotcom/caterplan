@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
+    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company, email, phone)), venues(*)")
     .order("created_at", { ascending: false });
 
   if (status && status !== "all") {
@@ -44,11 +44,10 @@ export async function POST(request: NextRequest) {
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
-  const { name, event_type_id, client_id, venue_id, notes, event_days } =
+  const { name, event_type_id, venue_id, notes, event_days, event_clients } =
     body as {
       name: string;
       event_type_id: string;
-      client_id?: string | null;
       venue_id?: string | null;
       notes?: string;
       event_days?: {
@@ -56,6 +55,7 @@ export async function POST(request: NextRequest) {
         label?: string;
         services?: { name?: string; guest_count?: number }[];
       }[];
+      event_clients?: { client_id: string; role?: string }[];
     };
 
   if (!name?.trim()) {
@@ -99,7 +99,6 @@ export async function POST(request: NextRequest) {
       event_type_id,
       event_id: eventId,
       name: name.trim(),
-      client_id: client_id || null,
       venue_id: venue_id || null,
       notes: notes?.trim() || null,
     })
@@ -154,6 +153,25 @@ export async function POST(request: NextRequest) {
       if (svcError) {
         return NextResponse.json({ error: svcError.message }, { status: 500 });
       }
+    }
+  }
+
+  // Insert event clients
+  if (event_clients && event_clients.length > 0) {
+    const clientRows = event_clients.map((ec, i) => ({
+      organisation_id: organisationId,
+      event_id: event.id,
+      client_id: ec.client_id,
+      role: ec.role || "end_client",
+      sort_order: i,
+    }));
+
+    const { error: ecError } = await supabase
+      .from("event_clients")
+      .insert(clientRows);
+
+    if (ecError) {
+      return NextResponse.json({ error: ecError.message }, { status: 500 });
     }
   }
 

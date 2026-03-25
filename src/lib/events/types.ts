@@ -52,6 +52,38 @@ export interface EventDay {
   event_services?: EventService[];
 }
 
+export type EventClientRole = "end_client" | "organiser" | "event_company";
+
+export const EVENT_CLIENT_ROLES: EventClientRole[] = [
+  "end_client",
+  "organiser",
+  "event_company",
+];
+
+export const CLIENT_ROLE_LABELS: Record<EventClientRole, string> = {
+  end_client: "End Client",
+  organiser: "Organiser",
+  event_company: "Event Company",
+};
+
+export interface EventClient {
+  id: string;
+  organisation_id: string;
+  event_id: string;
+  client_id: string;
+  role: EventClientRole;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  clients?: {
+    id: string;
+    name: string;
+    company: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+}
+
 /** Named CaterEvent to avoid collision with DOM Event type */
 export interface CaterEvent {
   id: string;
@@ -60,20 +92,13 @@ export interface CaterEvent {
   event_id: string;
   name: string;
   status: EventStatus;
-  client_id: string | null;
   venue_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
   event_types?: EventType;
   event_days?: EventDay[];
-  clients?: {
-    id: string;
-    name: string;
-    company: string | null;
-    email: string | null;
-    phone: string | null;
-  } | null;
+  event_clients?: EventClient[];
   venues?: {
     id: string;
     name: string;
@@ -84,6 +109,12 @@ export interface CaterEvent {
     load_in_restrictions: string | null;
     kitchen_facilities: string | null;
   } | null;
+}
+
+/** Input for creating/updating event client links */
+export interface EventClientInput {
+  client_id: string;
+  role: EventClientRole;
 }
 
 /** Input for creating/updating event services */

@@ -15,8 +15,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { StatusBadge } from "@/components/events/status-badge";
-import type { Client } from "@/lib/clients/types";
-import type { EventStatus } from "@/lib/events/types";
+import { CLIENT_ROLE_LABELS } from "@/lib/events/types";
+import type { Client, ClientEventLink } from "@/lib/clients/types";
+import type { EventClientRole, EventStatus } from "@/lib/events/types";
 
 interface ClientDetailProps {
   client: Client;
@@ -38,14 +39,7 @@ export function ClientDetail({ client }: ClientDetailProps) {
     }
   }, [client.id, router]);
 
-  const events = (client.events ?? []) as Array<{
-    id: string;
-    event_id: string;
-    name: string;
-    status: EventStatus;
-    event_types?: { name: string };
-    event_days?: { date: string | null; sort_order: number }[];
-  }>;
+  const eventLinks = (client.event_clients ?? []) as ClientEventLink[];
 
   return (
     <div className="space-y-6">
@@ -89,8 +83,7 @@ export function ClientDetail({ client }: ClientDetailProps) {
       {showDeleteConfirm && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
           <p className="text-sm font-medium text-red-800 dark:text-red-200">
-            Delete this client? Events linked to them will keep their data but
-            the client reference will be removed.
+            Delete this client? They will be removed from all linked events.
           </p>
           <div className="mt-3 flex gap-2">
             <Button
@@ -181,30 +174,36 @@ export function ClientDetail({ client }: ClientDetailProps) {
           <CardTitle className="text-base">Event history</CardTitle>
         </CardHeader>
         <CardContent>
-          {events.length === 0 ? (
+          {eventLinks.length === 0 ? (
             <p className="text-sm text-zinc-400">No events linked yet.</p>
           ) : (
             <div className="space-y-2">
-              {events.map((event) => {
+              {eventLinks.map((link) => {
+                const event = link.events;
                 const firstDay = event.event_days
                   ?.sort((a, b) => a.sort_order - b.sort_order)?.[0];
                 return (
                   <Link
-                    key={event.id}
+                    key={link.id}
                     href={`/events/${event.id}`}
                     className="flex items-center justify-between rounded-md border border-zinc-100 px-3 py-2 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
-                        {event.name}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">
+                          {event.name}
+                        </p>
+                        <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                          {CLIENT_ROLE_LABELS[link.role as EventClientRole]}
+                        </span>
+                      </div>
                       <p className="text-xs text-zinc-500">
                         {event.event_id}
                         {firstDay?.date &&
                           ` · ${new Date(firstDay.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
                       </p>
                     </div>
-                    <StatusBadge status={event.status} />
+                    <StatusBadge status={event.status as EventStatus} />
                   </Link>
                 );
               })}
