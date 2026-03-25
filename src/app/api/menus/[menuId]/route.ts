@@ -33,48 +33,76 @@ export async function GET(
   }
 
   if (allItemIds.length > 0) {
-    const { data: alternatives } = await supabase
+    // Fetch forward alternatives (this item has alternatives)
+    const { data: forwardAlts } = await supabase
       .from("menu_item_alternatives")
-      .select("id, menu_item_id, alternative_item_id, created_at")
+      .select("id, menu_item_id, alternative_item_id, reason, created_at")
       .in("menu_item_id", allItemIds);
 
-    if (alternatives && alternatives.length > 0) {
-      // Fetch the alternative item details
-      const altItemIds = [...new Set(alternatives.map((a: { alternative_item_id: string }) => a.alternative_item_id))];
-      const { data: altItems } = await supabase
+    // Fetch reverse alternatives (this item IS an alternative for another)
+    const { data: reverseAlts } = await supabase
+      .from("menu_item_alternatives")
+      .select("id, menu_item_id, alternative_item_id, reason, created_at")
+      .in("alternative_item_id", allItemIds);
+
+    // Build item name lookup for all referenced items
+    const referencedIds = new Set<string>();
+    for (const a of forwardAlts ?? []) referencedIds.add(a.alternative_item_id);
+    for (const a of reverseAlts ?? []) referencedIds.add(a.menu_item_id);
+
+    let itemNameMap = new Map<string, { id: string; name: string; description: string | null; dietary_flags: string[] }>();
+    if (referencedIds.size > 0) {
+      const { data: refItems } = await supabase
         .from("menu_items")
         .select("id, name, description, dietary_flags")
-        .in("id", altItemIds);
-
-      const altItemMap = new Map(
-        (altItems ?? []).map((i: { id: string }) => [i.id, i])
+        .in("id", Array.from(referencedIds));
+      itemNameMap = new Map(
+        (refItems ?? []).map((i: { id: string; name: string; description: string | null; dietary_flags: string[] }) => [i.id, i])
       );
+    }
 
-      // Group alternatives by menu_item_id
-      const altsByItem = new Map<string, unknown[]>();
-      for (const alt of alternatives) {
-        const enriched = {
-          ...alt,
-          alternative_item: altItemMap.get(alt.alternative_item_id) ?? null,
-        };
-        const existing = altsByItem.get(alt.menu_item_id) ?? [];
-        existing.push(enriched);
-        altsByItem.set(alt.menu_item_id, existing);
-      }
+    // Group forward alternatives by menu_item_id
+    const forwardByItem = new Map<string, unknown[]>();
+    for (const alt of forwardAlts ?? []) {
+      const enriched = {
+        ...alt,
+        alternative_item: itemNameMap.get(alt.alternative_item_id) ?? null,
+      };
+      const arr = forwardByItem.get(alt.menu_item_id) ?? [];
+      arr.push(enriched);
+      forwardByItem.set(alt.menu_item_id, arr);
+    }
 
-      // Attach to items
-      for (const section of data.menu_sections ?? []) {
-        for (const item of section.menu_items ?? []) {
-          (item as Record<string, unknown>).menu_item_alternatives =
-            altsByItem.get(item.id) ?? [];
-        }
+    // Group reverse alternatives by alternative_item_id
+    const reverseByItem = new Map<string, unknown[]>();
+    for (const alt of reverseAlts ?? []) {
+      // Skip if this is also a forward alt for the same item (avoid dupes)
+      const enriched = {
+        id: alt.id,
+        menu_item_id: alt.menu_item_id,
+        reason: alt.reason,
+        source_item: itemNameMap.get(alt.menu_item_id) ?? { id: alt.menu_item_id, name: "Unknown" },
+      };
+      const arr = reverseByItem.get(alt.alternative_item_id) ?? [];
+      arr.push(enriched);
+      reverseByItem.set(alt.alternative_item_id, arr);
+    }
+
+    // Attach to items
+    for (const section of data.menu_sections ?? []) {
+      for (const item of section.menu_items ?? []) {
+        (item as Record<string, unknown>).menu_item_alternatives =
+          forwardByItem.get(item.id) ?? [];
+        (item as Record<string, unknown>).reverse_alternatives =
+          reverseByItem.get(item.id) ?? [];
       }
-    } else {
-      // No alternatives — set empty arrays
-      for (const section of data.menu_sections ?? []) {
-        for (const item of section.menu_items ?? []) {
-          (item as Record<string, unknown>).menu_item_alternatives = [];
-        }
+    }
+  } else {
+    // No items at all
+    for (const section of data.menu_sections ?? []) {
+      for (const item of section.menu_items ?? []) {
+        (item as Record<string, unknown>).menu_item_alternatives = [];
+        (item as Record<string, unknown>).reverse_alternatives = [];
       }
     }
   }

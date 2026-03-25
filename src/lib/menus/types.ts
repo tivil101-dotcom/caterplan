@@ -58,12 +58,44 @@ export const ALLERGENS: { value: Allergen; label: string }[] = [
   { value: "sulphites", label: "Sulphites" },
 ];
 
+export type AlternativeReason =
+  | "vegetarian"
+  | "vegan"
+  | "gluten_free"
+  | "dairy_free"
+  | "nut_free"
+  | "halal"
+  | "allergy"
+  | "other";
+
+export const ALTERNATIVE_REASONS: { value: AlternativeReason; label: string }[] = [
+  { value: "vegetarian", label: "V" },
+  { value: "vegan", label: "VG" },
+  { value: "gluten_free", label: "GF" },
+  { value: "dairy_free", label: "DF" },
+  { value: "nut_free", label: "NF" },
+  { value: "halal", label: "Halal" },
+  { value: "allergy", label: "Allergy" },
+  { value: "other", label: "Other" },
+];
+
 export interface MenuItemAlternative {
   id: string;
   menu_item_id: string;
   alternative_item_id: string;
-  alternative_item?: MenuItem;
+  reason: AlternativeReason | null;
+  alternative_item?: { id: string; name: string; description?: string | null; dietary_flags?: DietaryFlag[] };
+  /** For reverse lookups — the item this is an alternative FOR */
+  source_item?: { id: string; name: string };
   created_at: string;
+}
+
+/** Represents a reverse alternative link (this item is an alt for another) */
+export interface ReverseAlternative {
+  id: string;
+  menu_item_id: string;
+  reason: AlternativeReason | null;
+  source_item: { id: string; name: string };
 }
 
 export interface MenuItem {
@@ -80,6 +112,7 @@ export interface MenuItem {
   created_at: string;
   updated_at: string;
   menu_item_alternatives?: MenuItemAlternative[];
+  reverse_alternatives?: ReverseAlternative[];
 }
 
 export interface MenuSection {

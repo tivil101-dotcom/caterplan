@@ -291,6 +291,7 @@ export function MenuEditor({ menuId }: MenuEditorProps) {
                 allSections={sections}
                 onUpdate={handleSectionUpdate}
                 onDelete={handleSectionDelete}
+                onRefreshMenu={fetchMenu}
               />
             ))}
           </div>

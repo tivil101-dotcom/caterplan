@@ -32,13 +32,7 @@ export async function POST(
     sort_order?: number;
   };
 
-  if (!name?.trim()) {
-    return NextResponse.json(
-      { error: "Item name is required" },
-      { status: 400 }
-    );
-  }
-
+  // Name can be empty on create — user fills it in via the editor
   // Get next sort_order if not provided
   let order = sort_order;
   if (order === undefined) {
@@ -57,7 +51,7 @@ export async function POST(
     .insert({
       organisation_id: organisationId,
       menu_section_id: sectionId,
-      name: name.trim(),
+      name: name?.trim() ?? "",
       description: description?.trim() || null,
       dietary_flags: dietary_flags || [],
       allergens: allergens || [],

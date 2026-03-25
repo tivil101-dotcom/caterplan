@@ -15,13 +15,29 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("menu_item_alternatives")
-    .select(
-      "*, alternative_item:menu_items!menu_item_alternatives_alternative_item_id_fkey(id, name, description, dietary_flags)"
-    )
+    .select("id, menu_item_id, alternative_item_id, reason, created_at")
     .eq("menu_item_id", itemId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Fetch alternative item details separately
+  if (data && data.length > 0) {
+    const altIds = data.map((a: { alternative_item_id: string }) => a.alternative_item_id);
+    const { data: altItems } = await supabase
+      .from("menu_items")
+      .select("id, name, description, dietary_flags")
+      .in("id", altIds);
+
+    const itemMap = new Map(
+      (altItems ?? []).map((i: { id: string }) => [i.id, i])
+    );
+
+    for (const alt of data) {
+      (alt as Record<string, unknown>).alternative_item =
+        itemMap.get(alt.alternative_item_id) ?? null;
+    }
   }
 
   return NextResponse.json(data);
@@ -40,7 +56,10 @@ export async function POST(
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
-  const { alternative_item_id } = body as { alternative_item_id: string };
+  const { alternative_item_id, reason } = body as {
+    alternative_item_id: string;
+    reason?: string | null;
+  };
 
   if (!alternative_item_id) {
     return NextResponse.json(
@@ -55,15 +74,24 @@ export async function POST(
       organisation_id: organisationId,
       menu_item_id: itemId,
       alternative_item_id,
+      reason: reason || null,
     })
-    .select(
-      "*, alternative_item:menu_items!menu_item_alternatives_alternative_item_id_fkey(id, name, description, dietary_flags)"
-    )
+    .select("id, menu_item_id, alternative_item_id, reason, created_at")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data, { status: 201 });
+  // Fetch the alternative item details
+  const { data: altItem } = await supabase
+    .from("menu_items")
+    .select("id, name, description, dietary_flags")
+    .eq("id", alternative_item_id)
+    .single();
+
+  return NextResponse.json(
+    { ...data, alternative_item: altItem ?? null },
+    { status: 201 }
+  );
 }

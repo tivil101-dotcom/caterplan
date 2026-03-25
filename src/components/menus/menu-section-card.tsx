@@ -36,6 +36,7 @@ interface MenuSectionCardProps {
   allSections: MenuSection[];
   onUpdate: (section: MenuSection) => void;
   onDelete: (sectionId: string) => void;
+  onRefreshMenu: () => void;
 }
 
 export function MenuSectionCard({
@@ -44,6 +45,7 @@ export function MenuSectionCard({
   allSections,
   onUpdate,
   onDelete,
+  onRefreshMenu,
 }: MenuSectionCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -107,20 +109,24 @@ export function MenuSectionCard({
   }
 
   async function handleAddItem() {
+    // Create item with empty name — user fills it in via the expanded editor
     const res = await fetch(
       `/api/menus/${menuId}/sections/${section.id}/items`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "New Item" }),
+        body: JSON.stringify({ name: "" }),
       }
     );
 
     if (res.ok) {
       const item = await res.json();
+      // Add empty alternatives arrays
+      item.menu_item_alternatives = [];
+      item.reverse_alternatives = [];
       onUpdate({
         ...section,
-        menu_items: [...items, item],
+        menu_items: [...items, { ...item, _isNew: true }],
       });
     }
   }
@@ -137,6 +143,36 @@ export function MenuSectionCard({
       ...section,
       menu_items: items.filter((i) => i.id !== itemId),
     });
+    // Refresh entire menu to clear stale alternative references
+    onRefreshMenu();
+  }
+
+  async function handleDuplicateItem(
+    item: MenuItem,
+    targetSectionId?: string
+  ) {
+    const destSectionId = targetSectionId ?? section.id;
+
+    const res = await fetch(
+      `/api/menus/${menuId}/sections/${destSectionId}/items`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${item.name} (copy)`,
+          description: item.description,
+          dietary_flags: item.dietary_flags,
+          allergens: item.allergens,
+          portion_notes: item.portion_notes,
+          prep_notes: item.prep_notes,
+        }),
+      }
+    );
+
+    if (res.ok) {
+      // Refresh the whole menu to pick up the new item in the right section
+      onRefreshMenu();
+    }
   }
 
   async function handleItemDragEnd(event: DragEndEvent) {
@@ -275,8 +311,11 @@ export function MenuSectionCard({
                       menuId={menuId}
                       sectionId={section.id}
                       allItems={allItems}
+                      allSections={allSections}
                       onUpdate={handleItemUpdate}
                       onDelete={handleItemDelete}
+                      onDuplicate={handleDuplicateItem}
+                      onRefreshMenu={onRefreshMenu}
                     />
                   ))}
                 </div>
