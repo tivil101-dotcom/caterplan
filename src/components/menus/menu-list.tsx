@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Plus, Search, UtensilsCrossed } from "lucide-react";
 import { SERVICE_STYLES, type Menu, type ServiceStyle } from "@/lib/menus/types";
 
 export function MenuList() {
+  const router = useRouter();
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -51,9 +53,8 @@ export function MenuList() {
     });
 
     if (res.ok) {
-      const menu = await res.json();
-      // Navigate to the editor
-      window.location.href = `/menus/${menu.id}`;
+      const data = await res.json();
+      router.push(`/menus/${data.id}`);
     }
     setIsCreating(false);
   }
