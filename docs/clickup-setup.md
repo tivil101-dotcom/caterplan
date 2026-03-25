@@ -64,10 +64,10 @@ Same as Dines setup:
 
 | Priority | Usage |
 |---|---|
-| Urgent | Needs doing now |
-| High | Active focus |
-| Normal | Coming up soon |
-| Low | Backlog / nice to have |
+| 🔴 Urgent | Needs doing now |
+| 🟠 High | Active focus |
+| 🟡 Normal | Coming up soon |
+| 🟢 Low | Backlog / nice to have |
 
 ---
 
