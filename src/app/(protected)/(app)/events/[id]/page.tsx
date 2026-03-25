@@ -13,7 +13,7 @@ export default async function EventDetailPage({
 
   const { data, error } = await supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
+    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company, email, phone)), venues(*)")
     .eq("id", id)
     .single();
 
@@ -35,6 +35,14 @@ export default async function EventDetailPage({
         );
       }
     }
+  }
+
+  // Sort event clients
+  if (data.event_clients) {
+    data.event_clients.sort(
+      (a: { sort_order: number }, b: { sort_order: number }) =>
+        a.sort_order - b.sort_order
+    );
   }
 
   return <EventDetail event={data as CaterEvent} />;
