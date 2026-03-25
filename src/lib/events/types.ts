@@ -27,6 +27,7 @@ export interface EventType {
   name: string;
   letter_code: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface EventService {

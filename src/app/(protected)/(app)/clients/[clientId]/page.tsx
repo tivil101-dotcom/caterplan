@@ -1,23 +1,18 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ClientDetail } from "@/components/clients/client-detail";
+import { fetchClientById } from "@/lib/clients/queries";
 import type { Client } from "@/lib/clients/types";
 
 export default async function ClientDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ clientId: string }>;
 }) {
-  const { id } = await params;
+  const { clientId } = await params;
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("clients")
-    .select(
-      "*, event_clients(id, role, sort_order, events(id, event_id, name, status, event_types(name), event_days(date, sort_order)))"
-    )
-    .eq("id", id)
-    .single();
+  const { data, error } = await fetchClientById(supabase, clientId);
 
   if (error || !data) {
     notFound();

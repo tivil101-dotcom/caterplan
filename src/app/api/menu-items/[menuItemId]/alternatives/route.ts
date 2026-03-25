@@ -3,20 +3,20 @@ import { getAuthenticatedClient } from "@/lib/supabase/api";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ itemId: string }> }
+  { params }: { params: Promise<{ menuItemId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { itemId } = await params;
+  const { menuItemId } = await params;
   const { supabase } = auth;
 
   const { data, error } = await supabase
     .from("menu_item_alternatives")
     .select("id, menu_item_id, alternative_item_id, reason, created_at")
-    .eq("menu_item_id", itemId);
+    .eq("menu_item_id", menuItemId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -45,14 +45,14 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ itemId: string }> }
+  { params }: { params: Promise<{ menuItemId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { itemId } = await params;
+  const { menuItemId } = await params;
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
@@ -72,7 +72,7 @@ export async function POST(
     .from("menu_item_alternatives")
     .insert({
       organisation_id: organisationId,
-      menu_item_id: itemId,
+      menu_item_id: menuItemId,
       alternative_item_id,
       reason: reason || null,
     })

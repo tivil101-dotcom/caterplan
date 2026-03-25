@@ -6,20 +6,20 @@ import { EventForm } from "@/components/events/event-form";
 import type { CaterEvent } from "@/lib/events/types";
 
 export default function EditEventPage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ eventId: string }>();
   const router = useRouter();
   const [event, setEvent] = useState<CaterEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/events/${params.id}`)
+    fetch(`/api/events/${params.eventId}`)
       .then((res) => res.json())
       .then((data) => {
         setEvent(data);
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
-  }, [params.id]);
+  }, [params.eventId]);
 
   if (isLoading) {
     return (

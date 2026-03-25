@@ -1,23 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthenticatedClient } from "@/lib/supabase/api";
+import { fetchVenueById } from "@/lib/venues/queries";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ venueId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { venueId } = await params;
   const { supabase } = auth;
 
-  const { data, error } = await supabase
-    .from("venues")
-    .select("*, events(id, event_id, name, status, event_types(name), event_days(date, sort_order))")
-    .eq("id", id)
-    .single();
+  const { data, error } = await fetchVenueById(supabase, venueId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 404 });
@@ -28,14 +25,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ venueId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { venueId } = await params;
   const { supabase } = auth;
   const body = await request.json();
 
@@ -67,7 +64,7 @@ export async function PUT(
   const { data, error } = await supabase
     .from("venues")
     .update(updates)
-    .eq("id", id)
+    .eq("id", venueId)
     .select("*")
     .single();
 
@@ -80,17 +77,17 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ venueId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { venueId } = await params;
   const { supabase } = auth;
 
-  const { error } = await supabase.from("venues").delete().eq("id", id);
+  const { error } = await supabase.from("venues").delete().eq("id", venueId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

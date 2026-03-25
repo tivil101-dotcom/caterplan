@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { supabase } = auth;
+  const { supabase, organisationId } = auth;
   const { searchParams } = new URL(request.url);
   const serviceStyle = searchParams.get("service_style");
   const search = searchParams.get("search");
@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("menus")
     .select("*, menu_sections(id, name, sort_order, menu_items(id))")
+    .eq("organisation_id", organisationId)
     .eq("is_template", true)
     .order("created_at", { ascending: false });
 

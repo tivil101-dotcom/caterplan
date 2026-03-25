@@ -3,20 +3,20 @@ import { getAuthenticatedClient } from "@/lib/supabase/api";
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ itemId: string; altItemId: string }> }
+  { params }: { params: Promise<{ menuItemId: string; altItemId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { itemId, altItemId } = await params;
+  const { menuItemId, altItemId } = await params;
   const { supabase } = auth;
 
   const { error } = await supabase
     .from("menu_item_alternatives")
     .delete()
-    .eq("menu_item_id", itemId)
+    .eq("menu_item_id", menuItemId)
     .eq("alternative_item_id", altItemId);
 
   if (error) {

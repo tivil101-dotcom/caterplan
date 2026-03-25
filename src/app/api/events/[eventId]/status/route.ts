@@ -4,14 +4,14 @@ import { EVENT_STATUSES, type EventStatus } from "@/lib/events/types";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { eventId } = await params;
   const { supabase } = auth;
   const body = await request.json();
   const { status } = body as { status: EventStatus };
@@ -26,7 +26,7 @@ export async function PATCH(
   const { data, error } = await supabase
     .from("events")
     .update({ status })
-    .eq("id", id)
+    .eq("id", eventId)
     .select("id, status")
     .single();
 

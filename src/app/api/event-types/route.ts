@@ -7,11 +7,12 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { supabase } = auth;
+  const { supabase, organisationId } = auth;
 
   const { data, error } = await supabase
     .from("event_types")
     .select("*")
+    .eq("organisation_id", organisationId)
     .order("name");
 
   if (error) {

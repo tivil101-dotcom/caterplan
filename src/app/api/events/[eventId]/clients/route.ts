@@ -3,20 +3,20 @@ import { getAuthenticatedClient } from "@/lib/supabase/api";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { eventId } = await params;
   const { supabase } = auth;
 
   const { data, error } = await supabase
     .from("event_clients")
     .select("*, clients(id, name, company, email, phone)")
-    .eq("event_id", id)
+    .eq("event_id", eventId)
     .order("sort_order", { ascending: true });
 
   if (error) {
@@ -28,14 +28,14 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { eventId } = await params;
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
@@ -56,7 +56,7 @@ export async function POST(
     .from("event_clients")
     .insert({
       organisation_id: organisationId,
-      event_id: id,
+      event_id: eventId,
       client_id,
       role: role || "end_client",
       sort_order: sort_order ?? 0,

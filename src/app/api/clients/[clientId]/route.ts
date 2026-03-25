@@ -1,23 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthenticatedClient } from "@/lib/supabase/api";
+import { fetchClientById } from "@/lib/clients/queries";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { clientId } = await params;
   const { supabase } = auth;
 
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*, event_clients(id, role, sort_order, events(id, event_id, name, status, event_types(name), event_days(date, sort_order)))")
-    .eq("id", id)
-    .single();
+  const { data, error } = await fetchClientById(supabase, clientId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 404 });
@@ -28,14 +25,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { clientId } = await params;
   const { supabase } = auth;
   const body = await request.json();
 
@@ -64,7 +61,7 @@ export async function PUT(
   const { data, error } = await supabase
     .from("clients")
     .update(updates)
-    .eq("id", id)
+    .eq("id", clientId)
     .select("*")
     .single();
 
@@ -77,17 +74,17 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { clientId } = await params;
   const { supabase } = auth;
 
-  const { error } = await supabase.from("clients").delete().eq("id", id);
+  const { error } = await supabase.from("clients").delete().eq("id", clientId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

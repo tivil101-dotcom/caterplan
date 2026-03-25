@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthenticatedClient } from "@/lib/supabase/api";
 import { generateEventId } from "@/lib/events/generate-event-id";
+import { fetchEvents } from "@/lib/events/queries";
 
 export async function GET(request: NextRequest) {
   const auth = await getAuthenticatedClient();
@@ -10,23 +11,11 @@ export async function GET(request: NextRequest) {
 
   const { supabase } = auth;
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status");
-  const search = searchParams.get("search");
 
-  let query = supabase
-    .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company, email, phone)), venues(*)")
-    .order("created_at", { ascending: false });
-
-  if (status && status !== "all") {
-    query = query.eq("status", status);
-  }
-
-  if (search) {
-    query = query.or(`name.ilike.%${search}%,event_id.ilike.%${search}%`);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await fetchEvents(supabase, {
+    status: searchParams.get("status") ?? undefined,
+    search: searchParams.get("search") ?? undefined,
+  });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

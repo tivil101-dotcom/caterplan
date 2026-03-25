@@ -1,51 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthenticatedClient } from "@/lib/supabase/api";
 import { generateEventId } from "@/lib/events/generate-event-id";
+import { fetchEventById } from "@/lib/events/queries";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { eventId } = await params;
   const { supabase } = auth;
 
-  const { data, error } = await supabase
-    .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company, email, phone)), venues(*)")
-    .eq("id", id)
-    .single();
+  const { data, error } = await fetchEventById(supabase, eventId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 404 });
-  }
-
-  // Sort event days and their services
-  if (data.event_days) {
-    data.event_days.sort(
-      (a: { sort_order: number }, b: { sort_order: number }) =>
-        a.sort_order - b.sort_order
-    );
-    for (const day of data.event_days) {
-      if (day.event_services) {
-        day.event_services.sort(
-          (a: { sort_order: number }, b: { sort_order: number }) =>
-            a.sort_order - b.sort_order
-        );
-      }
-    }
-  }
-
-  // Sort event clients
-  if (data.event_clients) {
-    data.event_clients.sort(
-      (a: { sort_order: number }, b: { sort_order: number }) =>
-        a.sort_order - b.sort_order
-    );
   }
 
   return NextResponse.json(data);
@@ -53,14 +26,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { eventId } = await params;
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
@@ -105,7 +78,7 @@ export async function PUT(
     const { error } = await supabase
       .from("events")
       .update(updates)
-      .eq("id", id);
+      .eq("id", eventId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -115,7 +88,17 @@ export async function PUT(
   // Replace event days and services if provided
   if (event_days !== undefined) {
     // Delete existing days (cascades to event_services)
-    await supabase.from("event_days").delete().eq("event_id", id);
+    const { error: deleteDaysError } = await supabase
+      .from("event_days")
+      .delete()
+      .eq("event_id", eventId);
+
+    if (deleteDaysError) {
+      return NextResponse.json(
+        { error: `Failed to clear event days: ${deleteDaysError.message}` },
+        { status: 500 }
+      );
+    }
 
     // Insert new days with services
     for (let i = 0; i < event_days.length; i++) {
@@ -124,7 +107,7 @@ export async function PUT(
       const { data: insertedDay, error: dayError } = await supabase
         .from("event_days")
         .insert({
-          event_id: id,
+          event_id: eventId,
           organisation_id: organisationId,
           date: day.date || null,
           label: day.label?.trim() || null,
@@ -133,7 +116,12 @@ export async function PUT(
         .select("id")
         .single();
 
-      if (dayError || !insertedDay) continue;
+      if (dayError || !insertedDay) {
+        return NextResponse.json(
+          { error: `Failed to create event day: ${dayError?.message ?? "Unknown error"}` },
+          { status: 500 }
+        );
+      }
 
       const services = day.services?.length
         ? day.services
@@ -147,50 +135,74 @@ export async function PUT(
         sort_order: j,
       }));
 
-      await supabase.from("event_services").insert(serviceRows);
+      const { error: svcError } = await supabase
+        .from("event_services")
+        .insert(serviceRows);
+
+      if (svcError) {
+        return NextResponse.json(
+          { error: `Failed to create event services: ${svcError.message}` },
+          { status: 500 }
+        );
+      }
     }
   }
 
   // Replace event clients if provided
   if (event_clients !== undefined) {
-    await supabase.from("event_clients").delete().eq("event_id", id);
+    const { error: deleteClientsError } = await supabase
+      .from("event_clients")
+      .delete()
+      .eq("event_id", eventId);
+
+    if (deleteClientsError) {
+      return NextResponse.json(
+        { error: `Failed to clear event clients: ${deleteClientsError.message}` },
+        { status: 500 }
+      );
+    }
 
     if (event_clients.length > 0) {
       const clientRows = event_clients.map((ec, i) => ({
         organisation_id: organisationId,
-        event_id: id,
+        event_id: eventId,
         client_id: ec.client_id,
         role: ec.role || "end_client",
         sort_order: i,
       }));
 
-      await supabase.from("event_clients").insert(clientRows);
+      const { error: insertClientsError } = await supabase
+        .from("event_clients")
+        .insert(clientRows);
+
+      if (insertClientsError) {
+        return NextResponse.json(
+          { error: `Failed to save event clients: ${insertClientsError.message}` },
+          { status: 500 }
+        );
+      }
     }
   }
 
-  // Fetch and return the updated event
-  const { data: updated } = await supabase
-    .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*)), event_clients(*, clients(id, name, company, email, phone)), venues(*)")
-    .eq("id", id)
-    .single();
+  // Fetch and return the updated event using shared query
+  const { data: updated } = await fetchEventById(supabase, eventId);
 
   return NextResponse.json(updated);
 }
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
+  const { eventId } = await params;
   const { supabase } = auth;
 
-  const { error } = await supabase.from("events").delete().eq("id", id);
+  const { error } = await supabase.from("events").delete().eq("id", eventId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

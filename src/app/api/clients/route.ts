@@ -7,13 +7,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { supabase } = auth;
+  const { supabase, organisationId } = auth;
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search");
 
   let query = supabase
     .from("clients")
     .select("*")
+    .eq("organisation_id", organisationId)
     .order("name");
 
   if (search) {

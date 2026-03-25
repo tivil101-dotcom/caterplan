@@ -1,27 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { VenueForm } from "@/components/venues/venue-form";
-import type { Venue } from "@/lib/venues/types";
+import { ClientForm } from "@/components/clients/client-form";
+import type { Client } from "@/lib/clients/types";
 
-export default function EditVenuePage() {
+export default function EditClientPage() {
   const router = useRouter();
-  const { id } = useParams<{ id: string }>();
-  const [venue, setVenue] = useState<Venue | null>(null);
+  const { clientId } =useParams<{ clientId: string }>();
+  const [client, setClient] = useState<Client | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/venues/${id}`)
+    fetch(`/api/clients/${clientId}`)
       .then((res) => res.json())
       .then((data) => {
-        setVenue(data);
+        setClient(data);
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
-  }, [id]);
+  }, [clientId]);
 
   if (isLoading) {
     return (
@@ -31,23 +32,23 @@ export default function EditVenuePage() {
     );
   }
 
-  if (!venue) return null;
+  if (!client) return null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <Link
-        href={`/venues/${id}`}
+        href={`/clients/${clientId}`}
         className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to venue
+        Back to client
       </Link>
       <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-        Edit venue
+        Edit client
       </h1>
-      <VenueForm
-        venue={venue}
-        onSuccess={() => router.push(`/venues/${id}`)}
+      <ClientForm
+        client={client}
+        onSuccess={() => router.push(`/clients/${clientId}`)}
       />
     </div>
   );

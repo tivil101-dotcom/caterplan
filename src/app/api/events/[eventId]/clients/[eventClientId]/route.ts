@@ -3,7 +3,7 @@ import { getAuthenticatedClient } from "@/lib/supabase/api";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; eventClientId: string }> }
+  { params }: { params: Promise<{ eventId: string; eventClientId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
@@ -38,7 +38,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string; eventClientId: string }> }
+  { params }: { params: Promise<{ eventId: string; eventClientId: string }> }
 ) {
   const auth = await getAuthenticatedClient();
   if (!auth) {
