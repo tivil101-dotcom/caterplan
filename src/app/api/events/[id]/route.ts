@@ -16,7 +16,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*))")
+    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
     .eq("id", id)
     .single();
 
@@ -56,21 +56,26 @@ export async function PUT(
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
-  const { name, event_type_id, notes, event_days } = body as {
-    name?: string;
-    event_type_id?: string;
-    notes?: string;
-    event_days?: {
-      date?: string;
-      label?: string;
-      services?: { name?: string; guest_count?: number }[];
-    }[];
-  };
+  const { name, event_type_id, client_id, venue_id, notes, event_days } =
+    body as {
+      name?: string;
+      event_type_id?: string;
+      client_id?: string | null;
+      venue_id?: string | null;
+      notes?: string;
+      event_days?: {
+        date?: string;
+        label?: string;
+        services?: { name?: string; guest_count?: number }[];
+      }[];
+    };
 
   // Build the update object
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name.trim();
   if (notes !== undefined) updates.notes = notes?.trim() || null;
+  if (client_id !== undefined) updates.client_id = client_id || null;
+  if (venue_id !== undefined) updates.venue_id = venue_id || null;
 
   // If event type changed, regenerate event ID
   if (event_type_id) {
@@ -142,7 +147,7 @@ export async function PUT(
   // Fetch and return the updated event
   const { data: updated } = await supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*))")
+    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
     .eq("id", id)
     .single();
 

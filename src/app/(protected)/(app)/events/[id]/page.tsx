@@ -13,7 +13,7 @@ export default async function EventDetailPage({
 
   const { data, error } = await supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*))")
+    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
     .eq("id", id)
     .single();
 

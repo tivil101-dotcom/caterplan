@@ -67,6 +67,23 @@ export interface CaterEvent {
   updated_at: string;
   event_types?: EventType;
   event_days?: EventDay[];
+  clients?: {
+    id: string;
+    name: string;
+    company: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+  venues?: {
+    id: string;
+    name: string;
+    address: string | null;
+    contact_person: string | null;
+    parking: string | null;
+    power_access: string | null;
+    load_in_restrictions: string | null;
+    kitchen_facilities: string | null;
+  } | null;
 }
 
 /** Input for creating/updating event services */

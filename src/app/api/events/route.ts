@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("events")
-    .select("*, event_types(*), event_days(*, event_services(*))")
+    .select("*, event_types(*), event_days(*, event_services(*)), clients(*), venues(*)")
     .order("created_at", { ascending: false });
 
   if (status && status !== "all") {
@@ -44,16 +44,19 @@ export async function POST(request: NextRequest) {
   const { supabase, organisationId } = auth;
   const body = await request.json();
 
-  const { name, event_type_id, notes, event_days } = body as {
-    name: string;
-    event_type_id: string;
-    notes?: string;
-    event_days?: {
-      date?: string;
-      label?: string;
-      services?: { name?: string; guest_count?: number }[];
-    }[];
-  };
+  const { name, event_type_id, client_id, venue_id, notes, event_days } =
+    body as {
+      name: string;
+      event_type_id: string;
+      client_id?: string | null;
+      venue_id?: string | null;
+      notes?: string;
+      event_days?: {
+        date?: string;
+        label?: string;
+        services?: { name?: string; guest_count?: number }[];
+      }[];
+    };
 
   if (!name?.trim()) {
     return NextResponse.json(
@@ -96,6 +99,8 @@ export async function POST(request: NextRequest) {
       event_type_id,
       event_id: eventId,
       name: name.trim(),
+      client_id: client_id || null,
+      venue_id: venue_id || null,
       notes: notes?.trim() || null,
     })
     .select("id")

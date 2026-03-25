@@ -146,6 +146,107 @@ export function EventDetail({ event: initialEvent }: EventDetailProps) {
         </CardContent>
       </Card>
 
+      {/* Client & Venue */}
+      {(event.clients || event.venues) && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {event.clients && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Client</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href={`/clients/${event.clients.id}`}
+                  className="text-sm font-medium text-zinc-900 hover:underline dark:text-white"
+                >
+                  {event.clients.name}
+                </Link>
+                {event.clients.company && (
+                  <p className="text-xs text-zinc-500">
+                    {event.clients.company}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {event.venues && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Venue</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href={`/venues/${event.venues.id}`}
+                  className="text-sm font-medium text-zinc-900 hover:underline dark:text-white"
+                >
+                  {event.venues.name}
+                </Link>
+                {event.venues.address && (
+                  <p className="text-xs text-zinc-500">
+                    {event.venues.address}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Venue practical details */}
+      {event.venues &&
+        (event.venues.parking ||
+          event.venues.power_access ||
+          event.venues.load_in_restrictions ||
+          event.venues.kitchen_facilities) && (
+          <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Venue — practical details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {event.venues.parking && (
+                <div>
+                  <p className="text-xs font-medium text-zinc-500">Parking</p>
+                  <p className="text-zinc-700 dark:text-zinc-300">
+                    {event.venues.parking}
+                  </p>
+                </div>
+              )}
+              {event.venues.power_access && (
+                <div>
+                  <p className="text-xs font-medium text-zinc-500">
+                    Power access
+                  </p>
+                  <p className="text-zinc-700 dark:text-zinc-300">
+                    {event.venues.power_access}
+                  </p>
+                </div>
+              )}
+              {event.venues.load_in_restrictions && (
+                <div>
+                  <p className="text-xs font-medium text-zinc-500">
+                    Load-in restrictions
+                  </p>
+                  <p className="text-zinc-700 dark:text-zinc-300">
+                    {event.venues.load_in_restrictions}
+                  </p>
+                </div>
+              )}
+              {event.venues.kitchen_facilities && (
+                <div>
+                  <p className="text-xs font-medium text-zinc-500">
+                    Kitchen facilities
+                  </p>
+                  <p className="text-zinc-700 dark:text-zinc-300">
+                    {event.venues.kitchen_facilities}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
       {/* Event days with nested services */}
       <Card>
         <CardHeader>

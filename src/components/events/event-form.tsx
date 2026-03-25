@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus } from "lucide-react";
 import { EventDayFields } from "./event-day-fields";
-import type {
-  CaterEvent,
-  EventType,
-  EventDayInput,
-} from "@/lib/events/types";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import type { CaterEvent, EventType, EventDayInput } from "@/lib/events/types";
+import type { Client } from "@/lib/clients/types";
+import type { Venue } from "@/lib/venues/types";
 
 interface EventFormProps {
   event?: CaterEvent;
@@ -30,6 +29,12 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
 
   const [name, setName] = useState(event?.name ?? "");
   const [eventTypeId, setEventTypeId] = useState(event?.event_type_id ?? "");
+  const [clientId, setClientId] = useState<string | null>(
+    event?.client_id ?? null
+  );
+  const [venueId, setVenueId] = useState<string | null>(
+    event?.venue_id ?? null
+  );
   const [notes, setNotes] = useState(event?.notes ?? "");
   const [eventDays, setEventDays] = useState<EventDayInput[]>(
     event?.event_days?.map((d) => ({
@@ -45,6 +50,8 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   );
 
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,29 +62,53 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   const [isCreatingType, setIsCreatingType] = useState(false);
   const [typeError, setTypeError] = useState<string | null>(null);
 
-  function fetchEventTypes() {
+  // Inline new client creation
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
+
+  // Inline new venue creation
+  const [showNewVenue, setShowNewVenue] = useState(false);
+  const [newVenueName, setNewVenueName] = useState("");
+  const [isCreatingVenue, setIsCreatingVenue] = useState(false);
+
+  useEffect(() => {
     fetch("/api/event-types")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setEventTypes(data);
-          if (!eventTypeId && data.length > 0) {
-            setEventTypeId(data[0].id);
-          }
+          if (!eventTypeId && data.length > 0) setEventTypeId(data[0].id);
         }
       });
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchClients = useCallback(() => {
+    fetch("/api/clients")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setClients(data);
+      });
+  }, []);
+
+  const fetchVenues = useCallback(() => {
+    fetch("/api/venues")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setVenues(data);
+      });
+  }, []);
 
   useEffect(() => {
-    fetchEventTypes();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchClients();
+    fetchVenues();
+  }, [fetchClients, fetchVenues]);
 
   async function handleCreateType() {
     if (!newTypeName.trim() || !newTypeCode.trim()) {
       setTypeError("Both name and letter code are required.");
       return;
     }
-
     setIsCreatingType(true);
     setTypeError(null);
 
@@ -89,7 +120,6 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
         letter_code: newTypeCode.trim(),
       }),
     });
-
     const data = await res.json();
 
     if (!res.ok) {
@@ -98,13 +128,52 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
       return;
     }
 
-    // Add to list and select it
     setEventTypes((prev) => [...prev, data]);
     setEventTypeId(data.id);
     setNewTypeName("");
     setNewTypeCode("");
     setShowNewType(false);
     setIsCreatingType(false);
+  }
+
+  async function handleCreateClient() {
+    if (!newClientName.trim()) return;
+    setIsCreatingClient(true);
+
+    const res = await fetch("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newClientName.trim() }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      setClients((prev) => [...prev, data]);
+      setClientId(data.id);
+      setNewClientName("");
+      setShowNewClient(false);
+    }
+    setIsCreatingClient(false);
+  }
+
+  async function handleCreateVenue() {
+    if (!newVenueName.trim()) return;
+    setIsCreatingVenue(true);
+
+    const res = await fetch("/api/venues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newVenueName.trim() }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      setVenues((prev) => [...prev, data]);
+      setVenueId(data.id);
+      setNewVenueName("");
+      setShowNewVenue(false);
+    }
+    setIsCreatingVenue(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -120,6 +189,8 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
     const body = {
       name: name.trim(),
       event_type_id: eventTypeId,
+      client_id: clientId,
+      venue_id: venueId,
       notes,
       event_days: eventDays,
     };
@@ -219,6 +290,104 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
             {typeError && (
               <p className="mt-1 text-xs text-red-600">{typeError}</p>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Client */}
+      <div className="space-y-2">
+        <Label>Client</Label>
+        <SearchableSelect
+          value={clientId}
+          onChange={setClientId}
+          options={clients.map((c) => ({
+            value: c.id,
+            label: c.company ? `${c.name} (${c.company})` : c.name,
+          }))}
+          placeholder="Select a client..."
+          onCreateNew={() => setShowNewClient(true)}
+          createNewLabel="Add new client"
+          disabled={isSubmitting}
+        />
+        {showNewClient && (
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="mb-2 text-xs font-medium text-zinc-500">
+              Quick-add client
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Client name"
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                disabled={isCreatingClient}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCreateClient}
+                disabled={isCreatingClient || !newClientName.trim()}
+              >
+                {isCreatingClient ? "..." : "Add"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowNewClient(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Venue */}
+      <div className="space-y-2">
+        <Label>Venue</Label>
+        <SearchableSelect
+          value={venueId}
+          onChange={setVenueId}
+          options={venues.map((v) => ({
+            value: v.id,
+            label: v.address ? `${v.name} — ${v.address}` : v.name,
+          }))}
+          placeholder="Select a venue..."
+          onCreateNew={() => setShowNewVenue(true)}
+          createNewLabel="Add new venue"
+          disabled={isSubmitting}
+        />
+        {showNewVenue && (
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="mb-2 text-xs font-medium text-zinc-500">
+              Quick-add venue
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Venue name"
+                value={newVenueName}
+                onChange={(e) => setNewVenueName(e.target.value)}
+                disabled={isCreatingVenue}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCreateVenue}
+                disabled={isCreatingVenue || !newVenueName.trim()}
+              >
+                {isCreatingVenue ? "..." : "Add"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowNewVenue(false)}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
       </div>
