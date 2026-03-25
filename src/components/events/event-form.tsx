@@ -527,11 +527,15 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="flex gap-3">
+      {/* Spacer so content isn't hidden behind sticky bar on mobile */}
+      <div className="h-16 sm:hidden" />
+
+      {/* Sticky save bar on mobile, inline on desktop */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur sm:static sm:inset-auto sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none dark:border-zinc-800 dark:bg-zinc-950/95 sm:dark:bg-transparent">
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="flex-1 sm:flex-none"
+          className="w-full sm:w-auto"
         >
           {isSubmitting
             ? isEdit

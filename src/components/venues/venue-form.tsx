@@ -210,15 +210,19 @@ export function VenueForm({ venue, onSuccess }: VenueFormProps) {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full sm:w-auto"
-      >
-        {isSubmitting
-          ? isEdit ? "Saving..." : "Creating..."
-          : isEdit ? "Save changes" : "Create venue"}
-      </Button>
+      <div className="h-16 sm:hidden" />
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur sm:static sm:inset-auto sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none dark:border-zinc-800 dark:bg-zinc-950/95 sm:dark:bg-transparent">
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full sm:w-auto"
+        >
+          {isSubmitting
+            ? isEdit ? "Saving..." : "Creating..."
+            : isEdit ? "Save changes" : "Create venue"}
+        </Button>
+      </div>
     </form>
   );
 }
