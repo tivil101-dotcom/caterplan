@@ -15,46 +15,68 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("menus")
-    .select(
-      "*, menu_sections(*, menu_items(*, menu_item_alternatives(id, menu_item_id, alternative_item_id, created_at)))"
-    )
+    .select("*, menu_sections(*, menu_items(*))")
     .eq("id", menuId)
     .single();
 
-  // Resolve alternative item details separately to avoid FK hint issues
-  if (data?.menu_sections) {
-    const allAltItemIds = new Set<string>();
-    for (const section of data.menu_sections) {
-      for (const item of section.menu_items ?? []) {
-        for (const alt of item.menu_item_alternatives ?? []) {
-          allAltItemIds.add(alt.alternative_item_id);
-        }
-      }
-    }
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 404 });
+  }
 
-    if (allAltItemIds.size > 0) {
-      const { data: altItems } = await supabase
-        .from("menu_items")
-        .select("id, name, description, dietary_flags")
-        .in("id", Array.from(allAltItemIds));
-
-      const altItemMap = new Map(
-        (altItems ?? []).map((i: { id: string; name: string; description: string | null; dietary_flags: string[] }) => [i.id, i])
-      );
-
-      for (const section of data.menu_sections) {
-        for (const item of section.menu_items ?? []) {
-          for (const alt of item.menu_item_alternatives ?? []) {
-            (alt as Record<string, unknown>).alternative_item =
-              altItemMap.get(alt.alternative_item_id) ?? null;
-          }
-        }
-      }
+  // Fetch alternatives separately — menu_item_alternatives has two FKs to
+  // menu_items which causes ambiguity in nested Supabase selects.
+  const allItemIds: string[] = [];
+  for (const section of data.menu_sections ?? []) {
+    for (const item of section.menu_items ?? []) {
+      allItemIds.push(item.id);
     }
   }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 404 });
+  if (allItemIds.length > 0) {
+    const { data: alternatives } = await supabase
+      .from("menu_item_alternatives")
+      .select("id, menu_item_id, alternative_item_id, created_at")
+      .in("menu_item_id", allItemIds);
+
+    if (alternatives && alternatives.length > 0) {
+      // Fetch the alternative item details
+      const altItemIds = [...new Set(alternatives.map((a: { alternative_item_id: string }) => a.alternative_item_id))];
+      const { data: altItems } = await supabase
+        .from("menu_items")
+        .select("id, name, description, dietary_flags")
+        .in("id", altItemIds);
+
+      const altItemMap = new Map(
+        (altItems ?? []).map((i: { id: string }) => [i.id, i])
+      );
+
+      // Group alternatives by menu_item_id
+      const altsByItem = new Map<string, unknown[]>();
+      for (const alt of alternatives) {
+        const enriched = {
+          ...alt,
+          alternative_item: altItemMap.get(alt.alternative_item_id) ?? null,
+        };
+        const existing = altsByItem.get(alt.menu_item_id) ?? [];
+        existing.push(enriched);
+        altsByItem.set(alt.menu_item_id, existing);
+      }
+
+      // Attach to items
+      for (const section of data.menu_sections ?? []) {
+        for (const item of section.menu_items ?? []) {
+          (item as Record<string, unknown>).menu_item_alternatives =
+            altsByItem.get(item.id) ?? [];
+        }
+      }
+    } else {
+      // No alternatives — set empty arrays
+      for (const section of data.menu_sections ?? []) {
+        for (const item of section.menu_items ?? []) {
+          (item as Record<string, unknown>).menu_item_alternatives = [];
+        }
+      }
+    }
   }
 
   // Sort sections and items by sort_order
